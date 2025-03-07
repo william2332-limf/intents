@@ -9,7 +9,7 @@ use near_sdk::{AccountId, AccountIdRef};
 
 use crate::{
     fees::Pips,
-    tokens::{TokenAmounts, TokenId},
+    tokens::{Amounts, TokenId},
     DefuseError, Nonce, Nonces, Result,
 };
 
@@ -133,7 +133,7 @@ where
         self.accounts.get_or_create(account_id).commit_nonce(nonce)
     }
 
-    fn internal_deposit(
+    fn internal_add_balance(
         &mut self,
         owner_id: AccountId,
         token_amounts: impl IntoIterator<Item = (TokenId, u128)>,
@@ -143,18 +143,18 @@ where
             if account.token_amounts.get(&token_id).is_none() {
                 account
                     .token_amounts
-                    .deposit(token_id.clone(), self.view.balance_of(&owner_id, &token_id))
+                    .add(token_id.clone(), self.view.balance_of(&owner_id, &token_id))
                     .ok_or(DefuseError::BalanceOverflow)?;
             }
             account
                 .token_amounts
-                .deposit(token_id, amount)
+                .add(token_id, amount)
                 .ok_or(DefuseError::BalanceOverflow)?;
         }
         Ok(())
     }
 
-    fn internal_withdraw(
+    fn internal_sub_balance(
         &mut self,
         owner_id: &AccountIdRef,
         token_amounts: impl IntoIterator<Item = (TokenId, u128)>,
@@ -171,12 +171,12 @@ where
             if account.token_amounts.get(&token_id).is_none() {
                 account
                     .token_amounts
-                    .deposit(token_id.clone(), self.view.balance_of(owner_id, &token_id))
+                    .add(token_id.clone(), self.view.balance_of(owner_id, &token_id))
                     .ok_or(DefuseError::BalanceOverflow)?;
             }
             account
                 .token_amounts
-                .withdraw(token_id, amount)
+                .sub(token_id, amount)
                 .ok_or(DefuseError::BalanceOverflow)?;
         }
         Ok(())
@@ -216,7 +216,7 @@ pub struct CachedAccount {
     public_keys_added: HashSet<PublicKey>,
     public_keys_removed: HashSet<PublicKey>,
 
-    token_amounts: TokenAmounts<HashMap<TokenId, u128>>,
+    token_amounts: Amounts<HashMap<TokenId, u128>>,
 }
 
 impl CachedAccount {

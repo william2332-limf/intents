@@ -10,14 +10,15 @@ POA_TOKEN_WASM = "${TARGET_DIR}/defuse_poa_token.wasm"
 alias = "build"
 
 [tasks.clippy]
-dependencies = ["build-poa-token"]
+dependencies = ["add-cache-dir-tag", "build-poa-token"]
 command = "cargo"
 args = ["clippy", "--workspace", "--all-targets", "--no-deps"]
 
 [tasks.build]
-dependencies = ["build-defuse", "build-poa-factory", "contract-stats"]
+dependencies = ["add-cache-dir-tag", "build-defuse", "build-poa-factory", "contract-stats"]
 
 [tasks.build-defuse]
+dependencies = ["add-cache-dir-tag"]
 command = "cargo"
 args = [
     "near",
@@ -33,7 +34,7 @@ args = [
 ]
 
 [tasks.build-poa-factory]
-dependencies = ["build-poa-token"]
+dependencies = ["add-cache-dir-tag", "build-poa-token"]
 command = "cargo"
 args = [
     "near",
@@ -49,6 +50,7 @@ args = [
 ]
 
 [tasks.build-poa-token]
+dependencies = ["add-cache-dir-tag"]
 command = "cargo"
 args = [
     "near",
@@ -85,3 +87,11 @@ script = "rm -rf ${TARGET_DIR}"
 [tasks.contract-stats]
 category = "Tools"
 script = "cd ${TARGET_DIR} && du -ah *.wasm"
+
+# We add CACHEDIR.TAG as it helps in making system level applications, e.g., backup systems, understand that this directory is just for disposable things.
+[tasks.add-cache-dir-tag]
+condition = { platforms = ["linux", "mac"] }
+script = [
+    "mkdir -p target res",
+    "echo 'Signature: 8a477f597d28d172789f06886806bc55' | tee target/CACHEDIR.TAG res/CACHEDIR.TAG > /dev/null"
+]

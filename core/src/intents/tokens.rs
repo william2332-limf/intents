@@ -6,7 +6,7 @@ use serde_with::{serde_as, DisplayFromStr};
 
 use crate::{
     engine::{Engine, Inspector, State},
-    tokens::TokenAmounts,
+    tokens::Amounts,
     DefuseError, Result,
 };
 
@@ -25,8 +25,8 @@ use super::ExecutableIntent;
 pub struct Transfer {
     pub receiver_id: AccountId,
 
-    #[serde_as(as = "TokenAmounts<BTreeMap<_, DisplayFromStr>>")]
-    pub tokens: TokenAmounts,
+    #[serde_as(as = "Amounts<BTreeMap<_, DisplayFromStr>>")]
+    pub tokens: Amounts,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub memo: Option<String>,
@@ -49,10 +49,10 @@ impl ExecutableIntent for Transfer {
         engine.inspector.on_transfer(sender_id, &self, intent_hash);
         engine
             .state
-            .internal_withdraw(sender_id, self.tokens.clone())?;
+            .internal_sub_balance(sender_id, self.tokens.clone())?;
         engine
             .state
-            .internal_deposit(self.receiver_id, self.tokens)?;
+            .internal_add_balance(self.receiver_id, self.tokens)?;
         Ok(())
     }
 }
