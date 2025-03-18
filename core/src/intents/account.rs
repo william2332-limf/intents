@@ -10,9 +10,13 @@ use crate::{
 
 use super::ExecutableIntent;
 
-/// Add public key to the signer account
 #[near(serializers = [borsh, json])]
 #[derive(Debug, Clone)]
+/// Given an account id, the user can add public keys. The added public keys can sign
+/// intents on behalf of these accounts, even to add new ones.
+/// Warning: Implicit account ids, by default, have their corresponding public keys added.
+/// Meaning: For a leaked private key, whose implicit account id had been used in intents,
+/// the user must manually rotate the underlying public key within intents, too.
 pub struct AddPublicKey {
     pub public_key: PublicKey,
 }
@@ -39,9 +43,9 @@ impl ExecutableIntent for AddPublicKey {
     }
 }
 
-/// Remove public key to the signer account
 #[near(serializers = [borsh, json])]
 #[derive(Debug, Clone)]
+/// Remove the public key associated with a given account. See `AddPublicKey`.
 pub struct RemovePublicKey {
     pub public_key: PublicKey,
 }
@@ -68,7 +72,6 @@ impl ExecutableIntent for RemovePublicKey {
     }
 }
 
-/// Invalidate given nonces TODO: error?
 #[cfg_attr(
     all(feature = "abi", not(target_arch = "wasm32")),
     serde_as(schemars = true)
@@ -79,6 +82,8 @@ impl ExecutableIntent for RemovePublicKey {
 )]
 #[near(serializers = [borsh, json])]
 #[derive(Debug, Clone)]
+/// Every intent execution requires a nonce. Each account id gets (over time, while using the intents contract) more nonces,
+/// and this ensures that nonces are not reused to avoid replay attacks. This "marks" the nonce as used.
 pub struct InvalidateNonces {
     #[serde_as(as = "Vec<Base64>")]
     pub nonces: Vec<Nonce>,

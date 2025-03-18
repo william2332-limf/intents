@@ -22,6 +22,7 @@ use super::ExecutableIntent;
 )]
 #[near(serializers = [borsh, json])]
 #[derive(Debug, Clone)]
+/// Transfer a set of tokens from the signer to a specified account id, within the intents contract.
 pub struct Transfer {
     pub receiver_id: AccountId,
 
@@ -59,6 +60,7 @@ impl ExecutableIntent for Transfer {
 
 #[near(serializers = [borsh, json])]
 #[derive(Debug, Clone)]
+/// Withdraw given FT tokens from the intents contract to a given external account id (external being outside of intents).
 pub struct FtWithdraw {
     pub token: AccountId,
     pub receiver_id: AccountId,
@@ -97,6 +99,7 @@ impl ExecutableIntent for FtWithdraw {
 
 #[near(serializers = [borsh, json])]
 #[derive(Debug, Clone)]
+/// Withdraw given NFT tokens from the intents contract to a given external account id (external being outside of intents).
 pub struct NftWithdraw {
     pub token: AccountId,
     pub receiver_id: AccountId,
@@ -135,6 +138,10 @@ impl ExecutableIntent for NftWithdraw {
 
 #[near(serializers = [borsh, json])]
 #[derive(Debug, Clone)]
+/// Withdraw given MT tokens (i.e. [NEP-245](https://github.com/near/NEPs/blob/master/neps/nep-0245.md)) from the intents contract
+/// to a given to an external account id (external being outside of intents).
+///
+/// If `msg` is given, `mt_batch_transfer_call()` will be used to transfer to the `receiver_id`. Otherwise, `mt_batch_transfer()` will be used.
 pub struct MtWithdraw {
     pub token: AccountId,
     pub receiver_id: AccountId,
@@ -171,12 +178,12 @@ impl ExecutableIntent for MtWithdraw {
     }
 }
 
-/// Withdraw native NEAR to `receiver_id`.
-/// The amount will be subtracted from user's NEP-141 `wNEAR` balance.
-/// NOTE: the `wNEAR` will not be refunded in case of fail (e.g. `receiver_id`
-/// account does not exist).
 #[near(serializers = [borsh, json])]
 #[derive(Debug, Clone)]
+/// Withdraw native tokens (NEAR) from the intents contract to a given external account id (external being outside of intents).
+/// This will subtract from the account's wNEAR balance, and will be sent to the account specified as native NEAR.
+/// NOTE: the `wNEAR` will not be refunded in case of fail (e.g. `receiver_id`
+/// account does not exist).
 pub struct NativeWithdraw {
     pub receiver_id: AccountId,
     pub amount: NearToken,

@@ -33,17 +33,31 @@ pub struct DefuseIntents {
 #[serde(tag = "intent", rename_all = "snake_case")]
 #[derive(Debug, Clone, From)]
 pub enum Intent {
+    /// See [`AddPublicKey`]
     AddPublicKey(AddPublicKey),
+
+    /// See [`RemovePublicKey`]
     RemovePublicKey(RemovePublicKey),
+
+    /// See [`InvalidateNonces`]
     InvalidateNonces(InvalidateNonces),
 
+    /// See [`Transfer`]
     Transfer(Transfer),
 
+    /// See [`FtWithdraw`]
     FtWithdraw(FtWithdraw),
+
+    /// See [`NftWithdraw`]
     NftWithdraw(NftWithdraw),
+
+    /// See [`MtWithdraw`]
     MtWithdraw(MtWithdraw),
+
+    /// See [`NativeWithdraw`]
     NativeWithdraw(NativeWithdraw),
 
+    /// See [`TokenDiff`]
     TokenDiff(TokenDiff),
 }
 

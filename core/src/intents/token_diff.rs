@@ -28,6 +28,11 @@ pub type TokenDeltas = Amounts<BTreeMap<TokenId, i128>>;
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[autoimpl(Deref using self.diff)]
 #[autoimpl(DerefMut using self.diff)]
+/// The user declares the will to have a set of changes done to set of tokens. For example,
+/// a simple trade of 100 of token A for 200 of token B, can be represented by `TokenDiff`
+/// of {"A": -100, "B": 200} (this format is just for demonstration purposes).
+/// In general, the user can submit multiple changes with many tokens,
+/// not just token A for token B.
 pub struct TokenDiff {
     #[serde_as(as = "Amounts<BTreeMap<_, DisplayFromStr>>")]
     pub diff: TokenDeltas,
@@ -104,6 +109,7 @@ impl ExecutableIntent for TokenDiff {
 )]
 #[near(serializers = [json])]
 #[derive(Debug, Clone)]
+/// An event emitted when a `TokenDiff` intent is executed.
 pub struct TokenDiffEvent<'a> {
     #[serde(flatten)]
     pub diff: Cow<'a, TokenDiff>,
