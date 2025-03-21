@@ -6,7 +6,7 @@ use defuse_serde_utils::base58::Base58;
 use derive_more::derive::From;
 use near_sdk::{AccountIdRef, CryptoHash, near};
 use serde_with::serde_as;
-use tokens::NativeWithdraw;
+use tokens::{NativeWithdraw, StorageDeposit};
 
 use crate::{
     Result,
@@ -19,17 +19,18 @@ use self::{
     tokens::{FtWithdraw, MtWithdraw, NftWithdraw, Transfer},
 };
 
-#[near(serializers = [borsh, json])]
+#[near(serializers = [json])]
 #[derive(Debug, Clone)]
 pub struct DefuseIntents {
     /// Sequence of intents to execute in given order. Empty list is also
     /// a valid sequence, i.e. it doesn't do anything, but still invalidates
     /// the `nonce` for the signer
+    /// WARNING: Promises created by different intents are executed concurrently and does not rely on the order of the intents in this structure
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub intents: Vec<Intent>,
 }
 
-#[near(serializers = [borsh, json])]
+#[near(serializers = [json])]
 #[serde(tag = "intent", rename_all = "snake_case")]
 #[derive(Debug, Clone, From)]
 pub enum Intent {
@@ -56,6 +57,9 @@ pub enum Intent {
 
     /// See [`NativeWithdraw`]
     NativeWithdraw(NativeWithdraw),
+
+    /// See [`StorageDeposit`]
+    StorageDeposit(StorageDeposit),
 
     /// See [`TokenDiff`]
     TokenDiff(TokenDiff),
@@ -111,6 +115,7 @@ impl ExecutableIntent for Intent {
             Self::NftWithdraw(intent) => intent.execute_intent(signer_id, engine, intent_hash),
             Self::MtWithdraw(intent) => intent.execute_intent(signer_id, engine, intent_hash),
             Self::NativeWithdraw(intent) => intent.execute_intent(signer_id, engine, intent_hash),
+            Self::StorageDeposit(intent) => intent.execute_intent(signer_id, engine, intent_hash),
             Self::TokenDiff(intent) => intent.execute_intent(signer_id, engine, intent_hash),
         }
     }

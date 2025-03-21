@@ -12,8 +12,8 @@ use defuse::{
 use near_sdk::{AccountId, NearToken};
 use randomness::Rng;
 use rstest::rstest;
-use test_utils::random::Seed;
 use test_utils::random::make_seedable_rng;
+use test_utils::random::{Seed, random_seed};
 
 use super::ExecuteIntentsExt;
 use crate::{
@@ -24,16 +24,15 @@ use crate::{
 #[tokio::test]
 #[rstest]
 #[trace]
-#[case(Seed::from_entropy())]
-async fn test_ft_withdraw_intent(#[case] seed: Seed) {
+async fn test_ft_withdraw_intent(random_seed: Seed) {
     // intentionally large deposit
     const STORAGE_DEPOSIT: NearToken = NearToken::from_near(1000);
 
-    let mut rng = make_seedable_rng(seed);
+    let mut rng = make_seedable_rng(random_seed);
 
     let env = Env::new().await;
 
-    env.defuse_ft_mint(&env.ft1, 1000, env.user1.id())
+    env.defuse_ft_deposit_to(&env.ft1, 1000, env.user1.id())
         .await
         .unwrap();
 
@@ -188,9 +187,8 @@ async fn test_ft_withdraw_intent(#[case] seed: Seed) {
 #[tokio::test]
 #[rstest]
 #[trace]
-#[case(Seed::from_entropy())]
-async fn test_ft_withdraw_intent_msg(#[case] seed: Seed) {
-    let mut rng = make_seedable_rng(seed);
+async fn test_ft_withdraw_intent_msg(random_seed: Seed) {
+    let mut rng = make_seedable_rng(random_seed);
 
     let env = Env::new().await;
 
@@ -212,7 +210,7 @@ async fn test_ft_withdraw_intent_msg(#[case] seed: Seed) {
         .await
         .unwrap();
 
-    env.defuse_ft_mint(&env.ft1, 1000, env.user1.id())
+    env.defuse_ft_deposit_to(&env.ft1, 1000, env.user1.id())
         .await
         .unwrap();
 

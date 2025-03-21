@@ -16,13 +16,16 @@ const FUNGIBLE_TOKEN_WASM: &[u8] = include_bytes!(concat!(
 ));
 
 pub trait FtExt: StorageManagementExt {
-    async fn deploy_vanilla_ft_token(&self, token: &str) -> anyhow::Result<Contract>;
+    async fn deploy_vanilla_ft_token(&self, token_name: &str) -> anyhow::Result<Contract>;
+
     async fn ft_token_balance_of(
         &self,
         token_id: &AccountId,
         account_id: &AccountId,
     ) -> anyhow::Result<u128>;
+
     async fn ft_balance_of(&self, account_id: &AccountId) -> anyhow::Result<u128>;
+
     async fn ft_transfer(
         &self,
         token_id: &AccountId,
@@ -30,6 +33,7 @@ pub trait FtExt: StorageManagementExt {
         amount: u128,
         memo: Option<String>,
     ) -> anyhow::Result<()>;
+
     async fn ft_transfer_call(
         &self,
         token_id: &AccountId,
@@ -38,6 +42,7 @@ pub trait FtExt: StorageManagementExt {
         memo: Option<String>,
         msg: &str,
     ) -> anyhow::Result<u128>;
+
     async fn ft_storage_deposit(
         &self,
         token_id: &AccountId,
@@ -50,17 +55,14 @@ pub trait FtExt: StorageManagementExt {
         &self,
         token_id: &AccountId,
         accounts: &[&AccountId],
-    ) -> anyhow::Result<()> {
-        for account in accounts {
-            self.ft_storage_deposit(token_id, Some(account)).await?;
-        }
-        Ok(())
-    }
+    ) -> anyhow::Result<()>;
 }
 
 impl FtExt for Account {
-    async fn deploy_vanilla_ft_token(&self, token: &str) -> anyhow::Result<Contract> {
-        let contract = self.deploy_contract(token, FUNGIBLE_TOKEN_WASM).await?;
+    async fn deploy_vanilla_ft_token(&self, token_name: &str) -> anyhow::Result<Contract> {
+        let contract = self
+            .deploy_contract(token_name, FUNGIBLE_TOKEN_WASM)
+            .await?;
         contract
             .call("new")
             .args_json(json!({
@@ -68,7 +70,7 @@ impl FtExt for Account {
                 "total_supply": TOTAL_SUPPLY.to_string(),
                 "metadata": {
                     "spec": "ft-1.0.0",
-                    "name": format!("Token {}", token),
+                    "name": format!("Token {}", token_name),
                     "symbol": "TKN",
                     "decimals": 18
                 }
@@ -152,11 +154,22 @@ impl FtExt for Account {
             .map(|v| v.0)
             .map_err(Into::into)
     }
+
+    async fn ft_storage_deposit_many(
+        &self,
+        token_id: &AccountId,
+        accounts: &[&AccountId],
+    ) -> anyhow::Result<()> {
+        for account in accounts {
+            self.ft_storage_deposit(token_id, Some(account)).await?;
+        }
+        Ok(())
+    }
 }
 
 impl FtExt for Contract {
-    async fn deploy_vanilla_ft_token(&self, token: &str) -> anyhow::Result<Self> {
-        self.as_account().deploy_vanilla_ft_token(token).await
+    async fn deploy_vanilla_ft_token(&self, token_name: &str) -> anyhow::Result<Self> {
+        self.as_account().deploy_vanilla_ft_token(token_name).await
     }
 
     async fn ft_token_balance_of(
@@ -196,5 +209,16 @@ impl FtExt for Contract {
         self.as_account()
             .ft_transfer_call(token_id, receiver_id, amount, memo, msg)
             .await
+    }
+
+    async fn ft_storage_deposit_many(
+        &self,
+        token_id: &AccountId,
+        accounts: &[&AccountId],
+    ) -> anyhow::Result<()> {
+        for account in accounts {
+            self.ft_storage_deposit(token_id, Some(account)).await?;
+        }
+        Ok(())
     }
 }

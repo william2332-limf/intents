@@ -204,3 +204,38 @@ impl ExecutableIntent for NativeWithdraw {
         engine.state.native_withdraw(owner_id, self)
     }
 }
+
+/// Make [NEP-145](https://nomicon.io/Standards/StorageManagement#nep-145)
+/// `storage_deposit` for an `account_id` on `contract_id`.
+/// The `amount` will be subtracted from user's NEP-141 `wNEAR` balance.
+/// NOTE: the `wNEAR` will not be refunded in any case.
+///
+/// WARNING: use this intent only if paying storage_deposit is not a prerequisite
+/// for other intents to succeed. If some intent (e.g. ft_withdraw) requires storage_deposit,
+/// then use storage_deposit field of corresponding intent instead of adding a separate
+/// `StorageDeposit` intent. This is due to the fact that intents that fire `Promise`s
+/// are not guaranteed to be executed sequentially, in the order of the provided intents in
+/// `DefuseIntents`.
+#[near(serializers = [borsh, json])]
+#[derive(Debug, Clone)]
+pub struct StorageDeposit {
+    pub contract_id: AccountId,
+    pub account_id: AccountId,
+    pub amount: NearToken,
+}
+
+impl ExecutableIntent for StorageDeposit {
+    #[inline]
+    fn execute_intent<S, I>(
+        self,
+        owner_id: &AccountIdRef,
+        engine: &mut Engine<S, I>,
+        _intent_hash: CryptoHash,
+    ) -> Result<()>
+    where
+        S: State,
+        I: Inspector,
+    {
+        engine.state.storage_deposit(owner_id, self)
+    }
+}
