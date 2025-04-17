@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use std::ops::Deref;
+use std::{ops::Deref, sync::LazyLock};
 
 use anyhow::anyhow;
 use defuse::{
@@ -13,14 +13,18 @@ use defuse::{
 };
 use defuse_poa_factory::contract::Role as POAFactoryRole;
 use near_sdk::{AccountId, NearToken};
-use near_workspaces::{Account, Contract};
+use near_workspaces::{Account, Contract, operations::Function};
+use serde_json::json;
 
 use crate::{
     tests::poa::factory::PoAFactoryExt,
-    utils::{Sandbox, ft::FtExt, wnear::WNearExt},
+    utils::{Sandbox, ft::FtExt, read_wasm, wnear::WNearExt},
 };
 
 use super::{DefuseExt, accounts::AccountManagerExt, tokens::nep141::DefuseFtReceiver};
+
+pub static POA_TOKEN_WASM_NO_REGISTRATION: LazyLock<Vec<u8>> =
+    LazyLock::new(|| read_wasm("poa-token-no-registration/defuse_poa_token"));
 
 pub struct Env {
     sandbox: Sandbox,
@@ -137,6 +141,7 @@ impl Deref for Env {
     }
 }
 
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Default)]
 pub struct EnvBuilder {
     fee: Pips,
@@ -147,6 +152,7 @@ pub struct EnvBuilder {
     self_as_super_admin: bool,
     deployer_as_super_admin: bool,
     disable_ft_storage_deposit: bool,
+    disable_registration: bool,
 }
 
 impl EnvBuilder {
@@ -187,6 +193,11 @@ impl EnvBuilder {
 
     pub fn grantee(mut self, role: Role, grantee: AccountId) -> Self {
         self.roles.grantees.entry(role).or_default().insert(grantee);
+        self
+    }
+
+    pub fn no_registration(mut self, no_reg_value: bool) -> Self {
+        self.disable_registration = no_reg_value;
         self
     }
 
@@ -258,7 +269,7 @@ impl EnvBuilder {
                 .poa_factory_deploy_token(poa_factory.id(), "ft3", None)
                 .await
                 .unwrap(),
-            poa_factory,
+            poa_factory: poa_factory.clone(),
             sandbox,
         };
 
@@ -282,8 +293,8 @@ impl EnvBuilder {
                 .await
                 .unwrap();
 
-            env_result
-                .ft_storage_deposit(
+            poa_factory
+                .ft_storage_deposit_many(
                     &env_result.ft1,
                     &[
                         env_result.user1.id(),
@@ -296,8 +307,8 @@ impl EnvBuilder {
                 .await
                 .unwrap();
 
-            env_result
-                .ft_storage_deposit(
+            poa_factory
+                .ft_storage_deposit_many(
                     &env_result.ft2,
                     &[
                         env_result.user1.id(),
@@ -310,8 +321,8 @@ impl EnvBuilder {
                 .await
                 .unwrap();
 
-            env_result
-                .ft_storage_deposit(
+            poa_factory
+                .ft_storage_deposit_many(
                     &env_result.ft3,
                     &[
                         env_result.user1.id(),
@@ -385,6 +396,40 @@ impl EnvBuilder {
             )
             .await
             .unwrap();
+
+        if self.disable_registration {
+            let root_secret_key = env_result.sandbox.root_account().secret_key();
+            let root_access_key = root_secret_key.public_key();
+
+            let worker = env_result.sandbox.worker().clone();
+
+            for ft in [&env_result.ft1, &env_result.ft2, &env_result.ft3] {
+                env_result
+                    .poa_factory
+                    .as_account()
+                    .batch(ft)
+                    .call(
+                        Function::new("add_full_access_key")
+                            .args_json(json!({"public_key": root_access_key}))
+                            .deposit(NearToken::from_yoctonear(1)),
+                    )
+                    .transact()
+                    .await
+                    .unwrap()
+                    .into_result()
+                    .unwrap();
+
+                Contract::from_secret_key(ft.clone(), root_secret_key.clone(), &worker)
+                    .batch()
+                    .deploy(&POA_TOKEN_WASM_NO_REGISTRATION)
+                    .delete_key(root_access_key.clone())
+                    .transact()
+                    .await
+                    .unwrap()
+                    .into_result()
+                    .unwrap();
+            }
+        }
 
         env_result
     }

@@ -26,6 +26,7 @@ pub struct Contract {
 #[near]
 impl Contract {
     #[init]
+    #[allow(dead_code)]
     pub fn new(owner_id: Option<AccountId>, metadata: Option<FungibleTokenMetadata>) -> Self {
         let metadata = metadata.unwrap_or_else(|| FungibleTokenMetadata {
             spec: FT_METADATA_SPEC.to_string(),
@@ -137,6 +138,7 @@ impl FungibleTokenResolver for Contract {
 #[near]
 impl StorageManagement for Contract {
     #[payable]
+    #[cfg_attr(feature = "no-registration", only(self, owner))]
     fn storage_deposit(
         &mut self,
         account_id: Option<AccountId>,
