@@ -53,7 +53,9 @@ impl Contract {
                 .ok_or(DefuseError::BalanceOverflow)?;
         }
 
-        MtEvent::MtMint([mint_event].as_slice().into()).emit();
+        if !mint_event.amounts.is_empty() {
+            MtEvent::MtMint([mint_event].as_slice().into()).emit();
+        }
 
         Ok(())
     }
@@ -100,7 +102,9 @@ impl Contract {
         // to avoid confusion when `mt_burn` occurs before relevant
         // `mt_transfer` arrives. This can happen due to postponed
         // delta-matching during intents execution.
-        self.postponed_burns.mt_burn(burn_event);
+        if !burn_event.amounts.is_empty() {
+            self.postponed_burns.mt_burn(burn_event);
+        }
 
         Ok(())
     }
