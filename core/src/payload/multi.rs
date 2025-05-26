@@ -13,16 +13,41 @@ use super::{
 #[near(serializers = [json])]
 #[serde(tag = "standard", rename_all = "snake_case")]
 #[derive(Debug, Clone, From)]
+/// Assuming wallets want to interact with Intents protocol, besides preparing the data in a certain
+/// form, they have to have the capability to sign raw messages (off-chain signatures) using an algorithm we understand.
+/// This enum solves that problem.
+///
+/// For example, because we support ERC-191 and know how to verify messages with that standard,
+/// we can allow wallets, like Metamask, sign messages to perform intents without having to
+/// support new cryptographic primitives and signing standards.
 pub enum MultiPayload {
+    /// NEP-413: The standard for message signing in Near Protocol.
+    /// For more details, refer to [NEP-413](https://github.com/near/NEPs/blob/master/neps/nep-0413.md).
     Nep413(SignedNep413Payload),
+
+    /// ERC-191: The standard for message signing in Ethereum, commonly used with `personal_sign()`.
+    /// For more details, refer to [EIP-191](https://eips.ethereum.org/EIPS/eip-191).
     Erc191(SignedErc191Payload),
+
+    /// Raw Ed25519: The standard used by Solana Phantom wallets for message signing.
+    /// For more details, refer to [Phantom Wallet's documentation](https://docs.phantom.com/solana/signing-a-message).
     RawEd25519(SignedRawEd25519Payload),
+
+    /// WebAuthn: The standard for Passkeys.
+    /// For more details, refer to [WebAuthn specification](https://w3c.github.io/webauthn/).
     #[serde(rename = "webauthn")]
     WebAuthn(SignedWebAuthnPayload),
+
+    /// TonConnect: The standard for data signing in TON blockchain platform.
+    /// For more details, refer to [TonConnect documentation](https://docs.tonconsole.com/academy/sign-data).
     TonConnect(SignedTonConnectPayload),
 }
 
 impl Payload for MultiPayload {
+    /// Hash of the envelope of the message.
+    /// Note that different arms will yield different hash values,
+    /// even if they include the same application-specific message in the envelope.
+    /// For example, NEP-413, uses SHA-256, while ERC-191 uses Keccak256.
     #[inline]
     fn hash(&self) -> CryptoHash {
         match self {
