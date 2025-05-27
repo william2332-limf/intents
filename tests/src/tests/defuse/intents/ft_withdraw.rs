@@ -1,5 +1,11 @@
-use std::time::Duration;
-
+use super::ExecuteIntentsExt;
+use crate::{
+    tests::defuse::{
+        DefuseExt, DefuseSigner, SigningStandard, env::Env, tokens::nep141::DefuseFtReceiver,
+    },
+    utils::{ft::FtExt, mt::MtExt, wnear::WNearExt},
+};
+use arbitrary::{Arbitrary, Unstructured};
 use defuse::{
     contract::config::{DefuseConfig, RolesConfig},
     core::{
@@ -12,14 +18,9 @@ use defuse::{
 use near_sdk::{AccountId, NearToken};
 use randomness::Rng;
 use rstest::rstest;
+use std::time::Duration;
 use test_utils::random::make_seedable_rng;
 use test_utils::random::{Seed, random_seed};
-
-use super::ExecuteIntentsExt;
-use crate::{
-    tests::defuse::{DefuseExt, DefuseSigner, env::Env, tokens::nep141::DefuseFtReceiver},
-    utils::{ft::FtExt, mt::MtExt, wnear::WNearExt},
-};
 
 #[tokio::test]
 #[rstest]
@@ -51,10 +52,13 @@ async fn ft_withdraw_intent(random_seed: Seed, #[values(false, true)] no_registr
         );
     }
 
+    let nonce = rng.random();
+
     env.defuse
         .execute_intents([env.user1.sign_defuse_message(
+            SigningStandard::arbitrary(&mut Unstructured::new(&rng.random::<[u8; 1]>())).unwrap(),
             env.defuse.id(),
-            rng.random(),
+            nonce,
             Deadline::timeout(Duration::from_secs(120)),
             DefuseIntents {
                 intents: [FtWithdraw {
@@ -86,10 +90,13 @@ async fn ft_withdraw_intent(random_seed: Seed, #[values(false, true)] no_registr
         0
     );
 
+    let nonce = rng.random();
+
     env.defuse
         .execute_intents([env.user1.sign_defuse_message(
+            SigningStandard::arbitrary(&mut Unstructured::new(&rng.random::<[u8; 1]>())).unwrap(),
             env.defuse.id(),
-            rng.random(),
+            nonce,
             Deadline::MAX,
             DefuseIntents {
                 intents: [FtWithdraw {
@@ -148,11 +155,15 @@ async fn ft_withdraw_intent(random_seed: Seed, #[values(false, true)] no_registr
         .await
         .unwrap()
         .balance;
+
+    let nonce = rng.random();
+
     env.defuse_execute_intents(
         env.defuse.id(),
         [env.user1.sign_defuse_message(
+            SigningStandard::arbitrary(&mut Unstructured::new(&rng.random::<[u8; 1]>())).unwrap(),
             env.defuse.id(),
-            rng.random(),
+            nonce,
             Deadline::MAX,
             DefuseIntents {
                 intents: [FtWithdraw {
@@ -247,10 +258,13 @@ async fn ft_withdraw_intent_msg(random_seed: Seed, #[values(false, true)] no_reg
         .await
         .unwrap();
 
+    let nonce = rng.random();
+
     env.defuse
         .execute_intents([env.user1.sign_defuse_message(
+            SigningStandard::arbitrary(&mut Unstructured::new(&rng.random::<[u8; 1]>())).unwrap(),
             env.defuse.id(),
-            rng.random(),
+            nonce,
             Deadline::timeout(Duration::from_secs(120)),
             DefuseIntents {
                 intents: [FtWithdraw {

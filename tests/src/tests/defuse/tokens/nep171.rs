@@ -1,5 +1,7 @@
+use crate::tests::defuse::SigningStandard;
 use crate::tests::defuse::{DefuseSigner, env::Env, intents::ExecuteIntentsExt};
 use crate::utils::{mt::MtExt, nft::NftExt};
+use arbitrary::{Arbitrary, Unstructured};
 use defuse::core::{
     Deadline,
     intents::{DefuseIntents, tokens::NftWithdraw},
@@ -243,10 +245,14 @@ async fn transfer_nft_to_verifier(random_seed: Seed) {
             );
         }
 
+        let nonce = rng.random();
+
         env.defuse
             .execute_intents([env.user3.sign_defuse_message(
+                SigningStandard::arbitrary(&mut Unstructured::new(&rng.random::<[u8; 1]>()))
+                    .unwrap(),
                 env.defuse.id(),
-                rng.random(),
+                nonce,
                 Deadline::timeout(std::time::Duration::from_secs(120)),
                 DefuseIntents {
                     intents: [NftWithdraw {
