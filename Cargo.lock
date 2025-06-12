@@ -628,6 +628,9 @@ dependencies = [
 name = "defuse-borsh-utils"
 version = "0.1.0"
 dependencies = [
+ "chrono",
+ "defuse-io-utils",
+ "impl-tools",
  "near-sdk",
 ]
 
@@ -689,6 +692,10 @@ dependencies = [
  "near-sdk",
  "serde_with",
 ]
+
+[[package]]
+name = "defuse-io-utils"
+version = "0.1.0"
 
 [[package]]
 name = "defuse-map-utils"
