@@ -3,7 +3,7 @@ mod nep171;
 mod nep245;
 
 use super::Contract;
-use defuse_core::{DefuseError, Result, tokens::TokenId};
+use defuse_core::{DefuseError, Result, token_id::TokenId};
 use defuse_nep245::{MtBurnEvent, MtEvent, MtMintEvent};
 use near_sdk::{AccountId, AccountIdRef, Gas, json_types::U128};
 use std::borrow::Cow;
@@ -40,10 +40,12 @@ impl Contract {
                 .add(token_id.clone(), amount)
                 .ok_or(DefuseError::BalanceOverflow)?;
             match token_id {
-                TokenId::Nep171(contract_id, token_id) if total_supply > 1 => {
-                    return Err(DefuseError::NftAlreadyDeposited(contract_id, token_id));
+                TokenId::Nep171(ref tid) => {
+                    if total_supply > 1 {
+                        return Err(DefuseError::NftAlreadyDeposited(tid.clone()));
+                    }
                 }
-                TokenId::Nep141(_) | TokenId::Nep171(_, _) | TokenId::Nep245(_, _) => {}
+                TokenId::Nep141(_) | TokenId::Nep245(_) => {}
             }
             owner
                 .token_balances

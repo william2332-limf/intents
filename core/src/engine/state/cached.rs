@@ -1,18 +1,16 @@
-use std::{
-    borrow::Cow,
-    collections::{HashMap, HashSet},
+use crate::{
+    DefuseError, Nonce, Nonces, Result,
+    amounts::Amounts,
+    fees::Pips,
+    intents::tokens::{FtWithdraw, MtWithdraw, NativeWithdraw, NftWithdraw, StorageDeposit},
+    token_id::{TokenId, nep141::Nep141TokenId, nep171::Nep171TokenId, nep245::Nep245TokenId},
 };
-
 use defuse_bitmap::{U248, U256};
 use defuse_crypto::PublicKey;
 use near_sdk::{AccountId, AccountIdRef};
-
-use crate::{
-    DefuseError, Nonce, Nonces, Result,
-    fees::Pips,
-    intents::tokens::StorageDeposit,
-    intents::tokens::{FtWithdraw, MtWithdraw, NativeWithdraw, NftWithdraw},
-    tokens::{Amounts, TokenId},
+use std::{
+    borrow::Cow,
+    collections::{HashMap, HashSet},
 };
 
 use super::{State, StateView};
@@ -184,14 +182,16 @@ where
     fn ft_withdraw(&mut self, owner_id: &AccountIdRef, withdraw: FtWithdraw) -> Result<()> {
         self.internal_sub_balance(
             owner_id,
-            std::iter::once((TokenId::Nep141(withdraw.token.clone()), withdraw.amount.0)).chain(
-                withdraw.storage_deposit.map(|amount| {
-                    (
-                        TokenId::Nep141(self.wnear_id().into_owned()),
-                        amount.as_yoctonear(),
-                    )
-                }),
-            ),
+            std::iter::once((
+                Nep141TokenId::new(withdraw.token.clone()).into(),
+                withdraw.amount.0,
+            ))
+            .chain(withdraw.storage_deposit.map(|amount| {
+                (
+                    Nep141TokenId::new(self.wnear_id().into_owned()).into(),
+                    amount.as_yoctonear(),
+                )
+            })),
         )
     }
 
@@ -199,12 +199,12 @@ where
         self.internal_sub_balance(
             owner_id,
             std::iter::once((
-                TokenId::Nep171(withdraw.token.clone(), withdraw.token_id.clone()),
+                Nep171TokenId::new(withdraw.token.clone(), withdraw.token_id.clone())?.into(),
                 1,
             ))
             .chain(withdraw.storage_deposit.map(|amount| {
                 (
-                    TokenId::Nep141(self.wnear_id().into_owned()),
+                    Nep141TokenId::new(self.wnear_id().into_owned()).into(),
                     amount.as_yoctonear(),
                 )
             })),
@@ -216,18 +216,22 @@ where
             return Err(DefuseError::InvalidIntent);
         }
 
+        let token_ids = std::iter::repeat(withdraw.token.clone())
+            .zip(withdraw.token_ids.iter().cloned())
+            .map(|(token, token_id)| Nep245TokenId::new(token, token_id))
+            .collect::<Result<Vec<_>, _>>()?;
+
         self.internal_sub_balance(
             owner_id,
-            std::iter::repeat(withdraw.token.clone())
-                .zip(withdraw.token_ids.iter().cloned())
-                .map(|(token, token_id)| TokenId::Nep245(token, token_id))
+            token_ids
+                .into_iter()
+                .map(Into::into)
                 .zip(withdraw.amounts.iter().map(|a| a.0))
-                .chain(withdraw.storage_deposit.map(|amount| {
-                    (
-                        TokenId::Nep141(self.wnear_id().into_owned()),
-                        amount.as_yoctonear(),
-                    )
-                })),
+                .chain(
+                    withdraw
+                        .storage_deposit
+                        .map(|amount| (self.wnear_token_id(), amount.as_yoctonear())),
+                ),
         )
     }
 
@@ -235,7 +239,7 @@ where
         self.internal_sub_balance(
             owner_id,
             [(
-                TokenId::Nep141(self.wnear_id().into_owned()),
+                Nep141TokenId::new(self.wnear_id().into_owned()).into(),
                 withdraw.amount.as_yoctonear(),
             )],
         )
@@ -249,7 +253,7 @@ where
         self.internal_sub_balance(
             owner_id,
             [(
-                TokenId::Nep141(self.wnear_id().into_owned()),
+                Nep141TokenId::new(self.wnear_id().into_owned()).into(),
                 storage_deposit.amount.as_yoctonear(),
             )],
         )

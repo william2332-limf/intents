@@ -1,9 +1,10 @@
 #![allow(clippy::too_many_arguments)]
 
-use core::iter;
-
 use defuse_core::{
-    DefuseError, Result, engine::StateView, intents::tokens::MtWithdraw, tokens::TokenId,
+    DefuseError, Result,
+    engine::StateView,
+    intents::tokens::MtWithdraw,
+    token_id::{nep141::Nep141TokenId, nep245::Nep245TokenId},
 };
 use defuse_near_utils::{
     CURRENT_ACCOUNT_ID, PREDECESSOR_ACCOUNT_ID, UnwrapOrPanic, UnwrapOrPanicError,
@@ -65,15 +66,20 @@ impl Contract {
             return Err(DefuseError::InvalidIntent);
         }
 
+        let token_ids = std::iter::repeat(withdraw.token.clone())
+            .zip(withdraw.token_ids.iter().cloned())
+            .map(|(token, token_id)| Nep245TokenId::new(token, token_id))
+            .collect::<Result<Vec<_>, _>>()?;
+
         self.withdraw(
             &owner_id,
-            iter::repeat(withdraw.token.clone())
-                .zip(withdraw.token_ids.iter().cloned())
-                .map(|(token, token_id)| TokenId::Nep245(token, token_id))
+            token_ids
+                .into_iter()
+                .map(Into::into)
                 .zip(withdraw.amounts.iter().map(|a| a.0))
                 .chain(withdraw.storage_deposit.map(|amount| {
                     (
-                        TokenId::Nep141(self.wnear_id().into_owned()),
+                        Nep141TokenId::new(self.wnear_id().into_owned()).into(),
                         amount.as_yoctonear(),
                     )
                 })),
@@ -223,7 +229,10 @@ impl MultiTokenWithdrawResolver for Contract {
                     used.0 = used.0.min(amount.0);
                     let refund = amount.0.saturating_sub(used.0);
                     if refund > 0 {
-                        Some((TokenId::Nep245(token.clone(), token_id), refund))
+                        let token_id = Nep245TokenId::new(token.clone(), token_id)
+                            .unwrap_or_panic_display()
+                            .into();
+                        Some((token_id, refund))
                     } else {
                         None
                     }

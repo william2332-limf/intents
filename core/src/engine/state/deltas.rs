@@ -1,24 +1,23 @@
-use std::{
-    borrow::Cow,
-    cmp::Reverse,
-    collections::{BTreeMap, HashMap},
-    iter,
-};
-
-use defuse_crypto::PublicKey;
-use defuse_map_utils::cleanup::DefaultMap;
-use defuse_nep245::{MtEvent, MtTransferEvent};
-use near_sdk::{AccountId, AccountIdRef, json_types::U128, near};
-use serde_with::{DisplayFromStr, serde_as};
-
 use crate::{
     DefuseError, Nonce, Result,
+    amounts::Amounts,
     fees::Pips,
     intents::{
         token_diff::TokenDeltas,
         tokens::{FtWithdraw, MtWithdraw, NativeWithdraw, NftWithdraw, StorageDeposit},
     },
-    tokens::{Amounts, TokenId},
+    token_id::TokenId,
+};
+use defuse_crypto::PublicKey;
+use defuse_map_utils::cleanup::DefaultMap;
+use defuse_nep245::{MtEvent, MtTransferEvent};
+use near_sdk::{AccountId, AccountIdRef, json_types::U128, near};
+use serde_with::{DisplayFromStr, serde_as};
+use std::{
+    borrow::Cow,
+    cmp::Reverse,
+    collections::{BTreeMap, HashMap},
+    iter,
 };
 
 use super::{State, StateView};
@@ -433,6 +432,8 @@ impl InvariantViolated {
 #[cfg(test)]
 #[allow(clippy::many_single_char_names)]
 mod tests {
+    use crate::token_id::nep141::Nep141TokenId;
+
     use super::*;
 
     #[test]
@@ -440,8 +441,8 @@ mod tests {
         let mut transfers = TransferMatcher::default();
         let [a, b, c, d, e, f, g]: [AccountId; 7] =
             ["a", "b", "c", "d", "e", "f", "g"].map(|s| format!("{s}.near").parse().unwrap());
-        let [ft1, ft2] =
-            ["ft1", "ft2"].map(|a| TokenId::Nep141(format!("{a}.near").parse().unwrap()));
+        let [ft1, ft2] = ["ft1", "ft2"]
+            .map(|a| TokenId::from(Nep141TokenId::new(format!("{a}.near").parse().unwrap())));
 
         let deltas: HashMap<AccountId, TokenDeltas> = [
             (&a, [(&ft1, -5), (&ft2, 1)].as_slice()),
@@ -501,8 +502,8 @@ mod tests {
         let mut deltas = TransferMatcher::default();
         let [a, b, _c, d, e, f, g]: [AccountId; 7] =
             ["a", "b", "c", "d", "e", "f", "g"].map(|s| format!("{s}.near").parse().unwrap());
-        let [ft1, ft2] =
-            ["ft1", "ft2"].map(|a| TokenId::Nep141(format!("{a}.near").parse().unwrap()));
+        let [ft1, ft2] = ["ft1", "ft2"]
+            .map(|a| TokenId::from(Nep141TokenId::new(format!("{a}.near").parse().unwrap())));
 
         for (owner, token_id, delta) in [
             (&a, &ft1, -5),

@@ -1,20 +1,18 @@
-use std::{borrow::Cow, collections::BTreeMap};
-
+use super::{ExecutableIntent, IntentEvent};
+use crate::{
+    DefuseError, Result,
+    accounts::AccountEvent,
+    amounts::Amounts,
+    engine::{Engine, Inspector, State, StateView},
+    events::DefuseEvent,
+    fees::Pips,
+    token_id::{TokenId, TokenIdType},
+};
 use defuse_num_utils::CheckedMulDiv;
 use impl_tools::autoimpl;
 use near_sdk::{AccountId, AccountIdRef, CryptoHash, near};
 use serde_with::{DisplayFromStr, serde_as};
-
-use crate::{
-    DefuseError, Result,
-    accounts::AccountEvent,
-    engine::{Engine, Inspector, State, StateView},
-    events::DefuseEvent,
-    fees::Pips,
-    tokens::{Amounts, TokenId},
-};
-
-use super::{ExecutableIntent, IntentEvent};
+use std::{borrow::Cow, collections::BTreeMap};
 
 pub type TokenDeltas = Amounts<BTreeMap<TokenId, i128>>;
 
@@ -64,24 +62,24 @@ impl ExecutableIntent for TokenDiff {
         let protocol_fee = engine.state.fee();
         let mut fees_collected: Amounts = Amounts::default();
 
-        for (token_id, delta) in self.diff.clone() {
-            if delta == 0 {
+        for (token_id, delta) in &self.diff {
+            if *delta == 0 {
                 return Err(DefuseError::InvalidIntent);
             }
 
             // add delta to signer's account
             engine
                 .state
-                .internal_apply_deltas(signer_id, [(token_id.clone(), delta)])?;
+                .internal_apply_deltas(signer_id, [(token_id.clone(), *delta)])?;
 
             // take fees only from negative deltas (i.e. token_in)
-            if delta < 0 {
+            if *delta < 0 {
                 let amount = delta.unsigned_abs();
-                let fee = Self::token_fee(&token_id, amount, protocol_fee).fee_ceil(amount);
+                let fee = Self::token_fee(token_id, amount, protocol_fee).fee_ceil(amount);
 
                 // collect fee
                 fees_collected
-                    .add(token_id, fee)
+                    .add(token_id.clone(), fee)
                     .ok_or(DefuseError::BalanceOverflow)?;
             }
         }
@@ -219,12 +217,14 @@ impl TokenDiff {
     }
 
     #[inline]
-    pub const fn token_fee(token_id: &TokenId, amount: u128, fee: Pips) -> Pips {
+    pub fn token_fee(token_id: impl Into<TokenIdType>, amount: u128, fee: Pips) -> Pips {
+        let token_id = token_id.into();
         match token_id {
-            TokenId::Nep141(_) => {}
-            TokenId::Nep245(_, _) if amount > 1 => {}
+            TokenIdType::Nep141 => {}
+            TokenIdType::Nep245 if amount > 1 => {}
+
             // do not take fees on NFTs and MTs with |delta| <= 1
-            _ => return Pips::ZERO,
+            TokenIdType::Nep171 | TokenIdType::Nep245 => return Pips::ZERO,
         }
         fee
     }
@@ -235,19 +235,22 @@ mod tests {
     use itertools::Itertools;
     use rstest::rstest;
 
+    use crate::token_id::{nep141::Nep141TokenId, nep171::Nep171TokenId, nep245::Nep245TokenId};
+
     use super::*;
 
     #[rstest]
     #[test]
     fn closure_delta(
         #[values(
-            (TokenId::Nep141("ft.near".parse().unwrap()), 1_000_000), (TokenId::Nep141("ft.near".parse().unwrap()), -1_000_000),
-            (TokenId::Nep171("nft.near".parse().unwrap(), "1".to_string()), 1),
-            (TokenId::Nep171("nft.near".parse().unwrap(), "1".to_string()), -1),
-            (TokenId::Nep245("mt.near".parse().unwrap(), "ft1".to_string()), 1_000_000),
-            (TokenId::Nep245("mt.near".parse().unwrap(), "ft1".to_string()), -1_000_000),
-            (TokenId::Nep245("mt.near".parse().unwrap(), "nft1".to_string()), 1),
-            (TokenId::Nep245("mt.near".parse().unwrap(), "nft1".to_string()), -1),
+            (Nep141TokenId::new("ft.near".parse().unwrap()).into(), 1_000_000),
+            (Nep141TokenId::new("ft.near".parse().unwrap()).into(), -1_000_000),
+            (Nep171TokenId::new("nft.near".parse().unwrap(), "1".to_string()).unwrap().into(), 1),
+            (Nep171TokenId::new("nft.near".parse().unwrap(), "1".to_string()).unwrap().into(), -1),
+            (Nep245TokenId::new("mt.near".parse().unwrap(), "ft1".to_string()).unwrap().into(), 1_000_000),
+            (Nep245TokenId::new("mt.near".parse().unwrap(), "ft1".to_string()).unwrap().into(), -1_000_000),
+            (Nep245TokenId::new("mt.near".parse().unwrap(), "nft1".to_string()).unwrap().into(), 1),
+            (Nep245TokenId::new("mt.near".parse().unwrap(), "nft1".to_string()).unwrap().into(), -1),
         )]
         token_delta: (TokenId, i128),
         #[values(
@@ -292,7 +295,8 @@ mod tests {
         )]
         fee: Pips,
     ) {
-        let [t1, t2, t3] = ["ft1", "ft2", "ft3"].map(|t| TokenId::Nep141(t.parse().unwrap()));
+        let [t1, t2, t3] =
+            ["ft1", "ft2", "ft3"].map(|t| TokenId::from(Nep141TokenId::new(t.parse().unwrap())));
 
         for (d1, d2, d3) in [0, 1, -1, 50, -50, 100, -100, 300, -300, 10_000, -10_000]
             .into_iter()
@@ -328,7 +332,8 @@ mod tests {
     #[rstest]
     #[test]
     fn arbitrage_means_somebody_looses(#[values(Pips::ZERO, Pips::ONE_BIP)] fee: Pips) {
-        let [t1, t2, t3] = ["ft1", "ft2", "ft3"].map(|t| TokenId::Nep141(t.parse().unwrap()));
+        let [t1, t2, t3] =
+            ["ft1", "ft2", "ft3"].map(|t| TokenId::from(Nep141TokenId::new(t.parse().unwrap())));
 
         let closure = TokenDiff::closure_deltas(
             [

@@ -1,7 +1,15 @@
-use std::iter;
-
+use crate::{
+    contract::{Contract, ContractExt, Role, tokens::STORAGE_DEPOSIT_GAS},
+    tokens::nep171::{
+        NonFungibleTokenForceWithdrawer, NonFungibleTokenWithdrawResolver,
+        NonFungibleTokenWithdrawer,
+    },
+};
 use defuse_core::{
-    DefuseError, Result, engine::StateView, intents::tokens::NftWithdraw, tokens::TokenId,
+    DefuseError, Result,
+    engine::StateView,
+    intents::tokens::NftWithdraw,
+    token_id::{nep141::Nep141TokenId, nep171::Nep171TokenId},
 };
 use defuse_near_utils::{
     CURRENT_ACCOUNT_ID, PREDECESSOR_ACCOUNT_ID, UnwrapOrPanic, UnwrapOrPanicError,
@@ -16,14 +24,7 @@ use near_sdk::{
     near, require,
     serde_json::{self, json},
 };
-
-use crate::{
-    contract::{Contract, ContractExt, Role, tokens::STORAGE_DEPOSIT_GAS},
-    tokens::nep171::{
-        NonFungibleTokenForceWithdrawer, NonFungibleTokenWithdrawResolver,
-        NonFungibleTokenWithdrawer,
-    },
-};
+use std::iter;
 
 #[near]
 impl NonFungibleTokenWithdrawer for Contract {
@@ -63,12 +64,12 @@ impl Contract {
         self.withdraw(
             &owner_id,
             iter::once((
-                TokenId::Nep171(withdraw.token.clone(), withdraw.token_id.clone()),
+                Nep171TokenId::new(withdraw.token.clone(), withdraw.token_id.clone())?.into(),
                 1,
             ))
             .chain(withdraw.storage_deposit.map(|amount| {
                 (
-                    TokenId::Nep141(self.wnear_id().into_owned()),
+                    Nep141TokenId::new(self.wnear_id().into_owned()).into(),
                     amount.as_yoctonear(),
                 )
             })),
@@ -181,13 +182,13 @@ impl NonFungibleTokenWithdrawResolver for Contract {
             PromiseResult::Failed => is_call,
         };
 
+        let token_id = Nep171TokenId::new(token, token_id)
+            .unwrap_or_panic_display()
+            .into();
+
         if !used {
-            self.deposit(
-                sender_id,
-                [(TokenId::Nep171(token, token_id), 1)],
-                Some("refund"),
-            )
-            .unwrap_or_panic();
+            self.deposit(sender_id, [(token_id, 1)], Some("refund"))
+                .unwrap_or_panic();
         }
 
         used

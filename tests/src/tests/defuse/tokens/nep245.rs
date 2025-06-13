@@ -2,13 +2,15 @@ use crate::{
     tests::defuse::{env::Env, tokens::nep141::DefuseFtWithdrawer},
     utils::mt::MtExt,
 };
-use defuse::core::tokens::TokenId;
+use defuse::core::token_id::TokenId;
 use defuse::nep245::Token;
 use rstest::rstest;
 
 #[tokio::test]
 #[rstest]
 async fn multitoken_enumeration(#[values(false, true)] no_registration: bool) {
+    use defuse::core::token_id::nep141::Nep141TokenId;
+
     let env = Env::builder()
         .no_registration(no_registration)
         .build()
@@ -49,8 +51,8 @@ async fn multitoken_enumeration(#[values(false, true)] no_registration: bool) {
         .await
         .unwrap();
 
-    let ft1 = TokenId::Nep141(env.ft1.clone());
-    let ft2 = TokenId::Nep141(env.ft2.clone());
+    let ft1 = TokenId::from(Nep141TokenId::new(env.ft1.clone()));
+    let ft2 = TokenId::from(Nep141TokenId::new(env.ft2.clone()));
 
     {
         assert_eq!(
@@ -274,6 +276,8 @@ async fn multitoken_enumeration(#[values(false, true)] no_registration: bool) {
 #[tokio::test]
 #[rstest]
 async fn multitoken_enumeration_with_ranges(#[values(false, true)] no_registration: bool) {
+    use defuse::core::token_id::nep141::Nep141TokenId;
+
     let env = Env::builder()
         .no_registration(no_registration)
         .build()
@@ -320,9 +324,9 @@ async fn multitoken_enumeration_with_ranges(#[values(false, true)] no_registrati
         .await
         .unwrap();
 
-    let ft1 = TokenId::Nep141(env.ft1.clone());
-    let ft2 = TokenId::Nep141(env.ft2.clone());
-    let ft3 = TokenId::Nep141(env.ft3.clone());
+    let ft1 = TokenId::from(Nep141TokenId::new(env.ft1.clone()));
+    let ft2 = TokenId::from(Nep141TokenId::new(env.ft2.clone()));
+    let ft3 = TokenId::from(Nep141TokenId::new(env.ft3.clone()));
 
     {
         let expected = [
