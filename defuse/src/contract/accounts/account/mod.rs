@@ -1,3 +1,7 @@
+mod entry;
+
+pub use self::entry::*;
+
 use std::borrow::Cow;
 
 use defuse_bitmap::{U248, U256};
@@ -7,6 +11,7 @@ use defuse_core::{
     crypto::PublicKey,
     events::DefuseEvent,
 };
+
 use defuse_near_utils::NestPrefix;
 use impl_tools::autoimpl;
 use near_sdk::{
@@ -18,6 +23,8 @@ use near_sdk::{
 
 use super::AccountState;
 
+// NOTE: in order to migrate to a new version (even when adding new fields),
+// see docs for `VersionedAccountEntry`
 #[derive(Debug)]
 #[near(serializers = [borsh])]
 #[autoimpl(Deref using self.state)]
@@ -53,6 +60,7 @@ impl Account {
     }
 
     #[inline]
+    #[must_use]
     pub fn add_public_key(&mut self, me: &AccountIdRef, public_key: PublicKey) -> bool {
         if !self.maybe_add_public_key(me, public_key) {
             return false;
@@ -70,6 +78,7 @@ impl Account {
     }
 
     #[inline]
+    #[must_use]
     fn maybe_add_public_key(&mut self, me: &AccountIdRef, public_key: PublicKey) -> bool {
         if me == public_key.to_implicit_account_id() {
             let was_removed = self.implicit_public_key_removed;
@@ -81,6 +90,7 @@ impl Account {
     }
 
     #[inline]
+    #[must_use]
     pub fn remove_public_key(&mut self, me: &AccountIdRef, public_key: &PublicKey) -> bool {
         if !self.maybe_remove_public_key(me, public_key) {
             return false;
@@ -98,6 +108,7 @@ impl Account {
     }
 
     #[inline]
+    #[must_use]
     fn maybe_remove_public_key(&mut self, me: &AccountIdRef, public_key: &PublicKey) -> bool {
         if me == public_key.to_implicit_account_id() {
             let was_removed = self.implicit_public_key_removed;
@@ -129,6 +140,7 @@ impl Account {
     }
 
     #[inline]
+    #[must_use]
     pub fn commit_nonce(&mut self, n: U256) -> bool {
         self.nonces.commit(n)
     }
