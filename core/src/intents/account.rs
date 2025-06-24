@@ -5,6 +5,7 @@ use serde_with::serde_as;
 
 use crate::{
     Nonce, Result,
+    accounts::AccountEvent,
     engine::{Engine, Inspector, State},
 };
 
@@ -96,5 +97,42 @@ impl ExecutableIntent for InvalidateNonces {
         self.nonces
             .into_iter()
             .try_for_each(|n| engine.state.commit_nonce(signer_id.to_owned(), n))
+    }
+}
+
+#[cfg_attr(
+    all(feature = "abi", not(target_arch = "wasm32")),
+    serde_as(schemars = true)
+)]
+#[cfg_attr(
+    not(all(feature = "abi", not(target_arch = "wasm32"))),
+    serde_as(schemars = false)
+)]
+#[near(serializers = [borsh, json])]
+#[derive(Debug, Clone)]
+pub struct SetAuthByPredecessorId {
+    pub enabled: bool,
+}
+
+impl ExecutableIntent for SetAuthByPredecessorId {
+    fn execute_intent<S, I>(
+        self,
+        signer_id: &AccountIdRef,
+        engine: &mut Engine<S, I>,
+        _intent_hash: CryptoHash,
+    ) -> Result<()>
+    where
+        S: State,
+        I: Inspector,
+    {
+        engine
+            .state
+            .set_auth_by_predecessor_id(signer_id.to_owned(), self.enabled)?;
+
+        engine
+            .inspector
+            .on_event(AccountEvent::new(signer_id, self).into());
+
+        Ok(())
     }
 }
